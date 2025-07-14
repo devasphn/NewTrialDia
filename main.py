@@ -21,7 +21,7 @@ class DialogueS2SAgent:
     A real-time Speech-to-Speech agent using Nari Labs Dia for dialogue generation.
     This implementation follows the official Hugging Face Transformers integration pattern.
     """
-    def _init_(self):
+    def __init__(self):
         print("--- Initializing Dialogue S2S Agent with Nari Labs Dia ---")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         # Use bfloat16 for modern GPUs (Ampere and newer), float16 for others.
