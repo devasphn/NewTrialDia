@@ -131,10 +131,9 @@ class DialogueS2SAgent:
         with torch.no_grad():
             output_ids = self.tts_model.generate(
                 **inputs,
-                audio_prompt=SPEAKER_REFERENCE_WAV,
                 max_new_tokens=4096,
                 guidance_scale=3.0,
-                temperature=0.7, # A balanced value for creativity and coherence
+                temperature=0.7,  # A balanced value for creativity and coherence
             )
         
         decoded_output = self.tts_processor.batch_decode(output_ids)
