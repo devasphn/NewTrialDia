@@ -184,7 +184,7 @@ def build_ui(agent: DialogueS2SAgent):
         clear_button.click(lambda: ([], None), None, [chatbot, audio_output])
     return demo
 
-if _name_ == "_main_":
+if _name_ == "__main__":
     agent = DialogueS2SAgent()
     ui = build_ui(agent)
     ui.launch(server_name="0.0.0.0", server_port=7860, debug=True)
