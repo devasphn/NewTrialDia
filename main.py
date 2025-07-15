@@ -51,11 +51,10 @@ class RealTimeS2SAgent:
 
         # 3. TTS (Text-to-Speech) Model - Dia by Nari Labs
         print(f"Loading Dia TTS model: {TTS_MODEL}...")
-        # Dia requires a processor and the model itself
         self.tts_processor = transformers.AutoProcessor.from_pretrained(TTS_MODEL)
         self.tts_model = transformers.DiaForConditionalGeneration.from_pretrained(
             TTS_MODEL, 
-            torch_dtype=torch.bfloat16 # Use bfloat16 for VRAM efficiency
+            torch_dtype=torch.bfloat16
         ).to(self.device)
         print("Dia TTS model loaded.")
         
@@ -98,29 +97,24 @@ class RealTimeS2SAgent:
         """Converts text to speech using the Dia model."""
         print("Speaking with Dia...")
         
-        # Dia requires a specific format with speaker tags. For a single utterance,
-        # we'll frame it as Speaker 1. The trailing [S1] is recommended for quality.
         formatted_text = f"[S1] {text} [S1]"
         
-        # Process the text
         inputs = self.tts_processor(
             text=[formatted_text], 
             padding=True, 
             return_tensors="pt"
         ).to(self.device)
 
-        # Generate audio codes
         with torch.no_grad():
             outputs = self.tts_model.generate(
                 **inputs, 
-                max_new_tokens=4096, # Increased token limit for longer speech
+                max_new_tokens=4096,
                 guidance_scale=3.0, 
-                temperature=1.0, # Using a more neutral temperature
+                temperature=1.0, 
                 top_p=0.90, 
                 top_k=45
             )
 
-        # Decode the audio codes and save to file
         decoded_outputs = self.tts_processor.batch_decode(outputs)
         audio_array = decoded_outputs[0]["audio"][0]
         samplerate = decoded_outputs[0]["sampling_rate"]
@@ -172,5 +166,5 @@ def build_ui(agent: RealTimeS2SAgent):
 if __name__ == "__main__":
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    # Launch on 0.0.0.0 to make it accessible on Runpod. Change port if needed.
-    ui.launch(server_name="0.0.0.0", server_port=7860)
+    # The final fix: set share=True to satisfy Gradio's startup check in containerized environments like Runpod.
+    ui.launch(server_name="0.0.0.0", server_port=7860, share=True)
