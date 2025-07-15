@@ -42,7 +42,7 @@ class RealTimeS2SAgent:
             os.remove(OUTPUT_WAV_FILE)
         
         print("\n--- Agent Ready ---")
-        self.speaker_tag = "[S1]"  # For alternating speakers
+        self.speaker_tag = "[S1]"
 
     def transcribe_audio(self, audio_filepath: str) -> str:
         if not audio_filepath: return ""
@@ -74,17 +74,19 @@ class RealTimeS2SAgent:
                 outputs = self.tts_model.generate(**inputs, max_new_tokens=2048, guidance_scale=3.0, temperature=1.8, top_p=0.90, top_k=45)
             decoded = self.tts_processor.batch_decode(outputs)
             
-            # Fixed audio extraction with shape handling
+            # Safe audio extraction with dimension handling
             audio_array = decoded[0]["audio"]
-            print(f"Decoded audio shape: {audio_array.shape}")  # Debug log
+            print(f"Decoded audio shape: {audio_array.shape}")  # Debug
+            audio_array = audio_array.squeeze()  # Flatten extra dims
             if audio_array.ndim > 1:
-                audio_array = audio_array[0]  # Select first channel if multi-dimensional
-            elif audio_array.ndim == 0:
-                raise ValueError("Decoded audio is scalar; generation failed.")
+                audio_array = audio_array[0]  # First channel if needed
             
             samplerate = decoded[0]["sampling_rate"]
             sf.write(OUTPUT_WAV_FILE, audio_array, samplerate)
             return OUTPUT_WAV_FILE
+        except IndexError as e:
+            print(f"TTS Indexing Error: {e} - Check tensor dimensions")
+            return None
         except Exception as e:
             print(f"TTS Error: {e}")
             return None
@@ -106,8 +108,8 @@ def build_ui(agent: RealTimeS2SAgent):
         gr.Markdown("# Real-Time Speech-to-Speech AI Agent (Dia TTS)")
         gr.Markdown("Tap mic, speak; agent responds expressively.")
 
-        # Explicit type="tuples" to suppress warning
-        chatbot = gr.Chatbot(label="Conversation", height=500, type="tuples")
+        # Use recommended type="messages"
+        chatbot = gr.Chatbot(label="Conversation", height=500, type="messages")
         
         with gr.Row():
             mic_input = gr.Audio(sources=["microphone"], type="filepath", label="Tap to Talk")
@@ -116,9 +118,9 @@ def build_ui(agent: RealTimeS2SAgent):
         def handle_interaction(audio_filepath, history):
             history = history or []
             new_history, audio_path = agent.process_conversation_turn(audio_filepath, history)
-            # Format as list of tuples for chatbot
-            chat_tuples = [(msg["content"], None) if msg["role"] == "user" else (None, msg["content"]) for msg in new_history]
-            return chat_tuples, audio_path
+            # Format as list of dicts for type="messages"
+            chat_messages = [{"role": msg["role"], "content": msg["content"]} for msg in new_history]
+            return chat_messages, audio_path
 
         mic_input.stop_recording(fn=handle_interaction, inputs=[mic_input, chatbot], outputs=[chatbot, audio_output])
         
