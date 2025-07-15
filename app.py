@@ -166,5 +166,5 @@ def build_ui(agent: RealTimeS2SAgent):
 if __name__ == "__main__":
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    # The final fix: set share=True to satisfy Gradio's startup check in containerized environments like Runpod.
-    ui.launch(server_name="0.0.0.0", server_port=7860, share=True)
+    # The final fix for containerized environments: disable the health check and remove share=True.
+    ui.launch(server_name="0.0.0.0", server_port=7860, _check_launched=False)
