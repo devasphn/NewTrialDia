@@ -1,27 +1,27 @@
-# Core AI & Utilities
-# Pinned to a known stable version for Runpod compatibility. Dia requires >= 2.0.
-torch==2.3.0
-torchaudio==2.3.0
-# NOTE: transformers is installed from git in the setup instructions.
+# Core AI/ML
+torch==2.3.1
+torchaudio==2.3.1
+accelerate==0.30.1
+bitsandbytes==0.43.1
 
-# ASR (Speech-to-Text)
+# Speech-to-Text (STT)
 faster-whisper==1.0.2
 ctranslate2==4.3.1
 
-# LLM (Language Model)
-accelerate>=0.30.1
-bitsandbytes>=0.43.1
+# Language Model (LLM)
+# Note: 'transformers' is installed from git below for Dia support
+huggingface_hub==0.23.0
 
-# TTD (Text-to-Dialogue - Dia)
-# Core dependencies for Nari-Labs Dia, versions cross-referenced for compatibility.
+# Text-to-Speech (TTS) - Nari Labs Dia
+# Dia requires specific versions, numpy is updated from 1.22.0
+numpy>=2.0.0
 descript-audio-codec>=1.0.0
-soundfile>=0.12.1
-librosa>=0.10.0
 
 # Web UI
-gradio>=4.25.0
+gradio==4.44.1
 
-# Other Dependencies
-huggingface-hub>=0.23.0
-numpy
-pydantic
+# Audio I/O and Utilities
+# pyaudio and webrtcvad are not needed for the Gradio app but are kept for reference
+pyaudio==0.2.14
+webrtcvad==2.0.10
+soundfile>=0.12.1
