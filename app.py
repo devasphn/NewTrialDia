@@ -73,10 +73,19 @@ class RealTimeS2SAgent:
         return transcription
 
     def generate_response(self, chat_history: list) -> str:
-        """Generates a response from the LLM."""
-        messages = [
-            {"role": "system", "content": "You are a friendly and helpful conversational AI. Your name is Deva. Keep your responses concise, conversational, and expressive. Use laughs or sighs where appropriate, like (laughs) or (sighs)."}
-        ]
+        """Generates a response from the LLM with a persona-driven system prompt."""
+        
+        # This new system prompt is the key to fixing the AI's behavior.
+        # It explicitly tells the LLM it has a voice and how to behave.
+        system_prompt = (
+            "You are Deva, a friendly and expressive AI assistant. Your responses will be converted into "
+            "audible speech, so your primary goal is to generate text that sounds natural and engaging when spoken. "
+            "Use conversational language and non-verbal cues like (laughs), (sighs), or (ahem) to add personality. "
+            "Crucially, always act as though you are speaking. Never describe yourself as a text-based model or "
+            "mention that you cannot speak. You have a voice."
+        )
+
+        messages = [{"role": "system", "content": system_prompt}]
         for msg in chat_history:
             if msg['role'] in ['user', 'assistant']:
                 messages.append(msg)
@@ -85,10 +94,12 @@ class RealTimeS2SAgent:
             self.llm_pipeline.tokenizer.eos_token_id,
             self.llm_pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
         ]
+        
         outputs = self.llm_pipeline(
             messages, max_new_tokens=256, eos_token_id=terminators, do_sample=True,
             temperature=0.7, top_p=0.9, pad_token_id=self.llm_pipeline.tokenizer.eos_token_id,
         )
+        
         assistant_response = outputs[0]["generated_text"][-1]['content']
         print(f"Agent: {assistant_response}")
         return assistant_response
@@ -118,9 +129,7 @@ class RealTimeS2SAgent:
                 top_k=45
             )
 
-        # **THE CRITICAL FIX IS HERE**
-        # Instead of manually extracting the array, use the processor's built-in save function.
-        # This is the officially supported and robust method.
+        # Use the processor's built-in save function for robust audio saving
         decoded_outputs = self.tts_processor.batch_decode(outputs)
         self.tts_processor.save_audio(decoded_outputs, OUTPUT_WAV_FILE)
         
@@ -175,7 +184,7 @@ def build_ui(agent: RealTimeS2SAgent):
 if __name__ == "__main__":
     # This block contains the definitive fix for Gradio in containerized environments.
     
-    # 1. Set the GRADIO_SERVER_NAME environment variable to fix the health check.
+    # 1. Set the GRADIO_SERVER_NAME environment variable.
     os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     
     # 2. Instantiate the agent and build the UI.
