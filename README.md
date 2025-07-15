@@ -1,85 +1,76 @@
-# Real-Time Dialogue Agent with Nari Labs Dia TTS
+# Real-Time Speech-to-Speech AI Agent (Dia TTS Version)
 
-This project provides a complete, self-contained AI agent that interacts in real-time through voice via a web interface. It uses a state-of-the-art model pipeline to generate truly natural, expressive, and human-like dialogue, including non-verbal sounds like laughter.
+This project provides a complete, self-contained AI agent that interacts in real-time through voice via a web interface. It uses a state-of-the-art model pipeline for a fluid and emotionally aware conversational experience.
 
-This is not a standard text-to-speech agent; it is a **dialogue generation system**.
+This version has been upgraded to use the advanced **Dia** model for dialogue generation, offering more expressive and natural-sounding speech.
 
 ## Core Technology Pipeline
 *   **Web UI:** Gradio for a fast, interactive web interface.
 *   **Speech-to-Text (STT):** `faster-whisper` (distil-large-v3 model) for fast and accurate transcription.
-*   **Language Model (LLM):** Meta's `Llama-3-8B-Instruct` (in 4-bit), prompted to generate dialogue scripts.
-*   **Text-to-Dialogue (TTD):** **Nari Labs Dia** (`nari-labs/Dia-1.6B-0626`) for high-fidelity, expressive dialogue synthesis.
+*   **Language Model (LLM):** Meta's `Llama-3-8B-Instruct` (in 4-bit) for intelligent response generation.
+*   **Text-to-Speech (TTS):** Nari Labs' `Dia-1.6B-0626` for high-quality, expressive dialogue synthesis.
 
 ## Prerequisites
 *   **Hardware:** A machine with a modern NVIDIA GPU with at least 16GB of VRAM (e.g., A4500, A6000, RTX 3090, RTX 4090).
 *   **Operating System:** Linux (recommended for Runpod).
 *   **Software:**
     *   Python 3.10+
-    *   `git` and `git-lfs` (for downloading models).
-    *   `wget`
+    *   `git` and `git-lfs`
 
-## Setup and Installation
+## Setup and Installation on Runpod
 
-**Follow these steps precisely.**
+Follow these steps precisely.
 
-1.  **Clone the Repository**
+1.  **Clone Your New Repository**
+    Create a new repository on GitHub called `NewTrialDia` and clone it to your Runpod instance.
     ```bash
     # Replace with your repository URL
-    git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-    cd YOUR_REPO_NAME
+    git clone https://github.com/YOUR_USERNAME/NewTrialDia.git
+    cd NewTrialDia
     ```
 
-2.  **Create a Virtual Environment**
+2.  **Create and Activate Virtual Environment**
     ```bash
     python3 -m venv venv
     source venv/bin/activate
     ```
 
-3.  **Download Reference Audio & Create Transcript**
-    Dia requires a reference audio file and its exact transcript to clone a voice.
-    
-    First, download the audio:
+3.  **Install System Dependencies**
+    The Dia model may require some additional system libraries.
     ```bash
-    wget -O speaker.wav https://huggingface.co/datasets/mca-ark/libri-tts-test-clean/resolve/main/116_288045_000020_000001.wav
-    ```
-    Next, create a text file containing the exact words spoken in that audio:
-    ```bash
-    echo "[S1] and that he was not authorized to use it in any way." > speaker_transcript.txt
+    sudo apt-get update
+    sudo apt-get install -y libsndfile1 ffmpeg
     ```
 
-4.  **Install Bleeding-Edge Transformers**
-    Dia's integration is very new and requires the main branch of `transformers`.
+4.  **Install Python Dependencies**
+    This is a two-step process. First, install the main requirements. Then, install the specific version of `transformers` needed for Dia.
     ```bash
+    pip install -r requirements.txt
     pip install git+https://github.com/huggingface/transformers.git
     ```
 
-5.  **Install All Other Dependencies**
-    Now, install the remaining libraries from the `requirements.txt` file.
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-6.  **Log in to Hugging Face (Required for Llama 3)**
-    Log in to your Hugging Face account to download the Llama 3 model.
+5.  **Log in to Hugging Face**
+    This is required for Llama 3.
     ```bash
     huggingface-cli login
-    # Paste your Hugging Face token when prompted
+    # Paste your token when prompted
     ```
 
 ## Running the Agent
 
 1.  **Start the Web Server**
-    Run the application using the `app.py` script. The first run will download several GB of models and may take a long time.
     ```bash
     python app.py
     ```
+    The first time you run this, it will download all necessary models (Whisper, Llama 3, Dia, and Descript Audio Codec). This is a large download (25-30 GB) and will take a significant amount of time.
 
 2.  **Access the UI**
-    The script will start a web server on port 7860. On Runpod, a button will appear to connect.
+    The script will start a web server. On Runpod, a button will appear to "Connect to Port 7860" (or whichever port you configure). Click it to open the UI in your browser.
 
 3.  **Interact with the Agent**
-    *   Click "Tap to Talk" and speak.
-    *   The agent will generate a response in dialogue format and speak it.
+    *   Tap the microphone and speak.
+    *   Your transcription will appear, followed by the agent's text response.
+    *   An audio player will appear with the agent's spoken response, which will play automatically.
 
 4.  **Stopping the Agent**
-    To stop the server, press `Ctrl+C` in the terminal.
+    Press `Ctrl+C` in the terminal.
