@@ -6,7 +6,7 @@ import numpy as np
 import soundfile as sf
 import time
 import os
-import re # <-- Import the regular expression library
+import re  # For tag processing
 
 # --- Configuration ---
 # Models
@@ -56,49 +56,13 @@ class RealTimeS2SAgent:
         ).to(self.device)
         print("Dia TTS model loaded.")
         
-        # This is the official list of supported non-verbal tags from the Dia repository
-        self.allowed_tts_tags = [
-            '(laughs)', '(clears throat)', '(sighs)', '(gasps)', '(coughs)', 
-            '(sings)', '(mumbles)', '(beep)', '(groans)', '(sniffs)', 
-            '(claps)', '(screams)', '(inhales)', '(exhales)', '(applause)', 
-            '(burps)', '(humming)', '(sneezes)', '(chuckle)', '(whistles)'
-        ]
-        
+        # Speaker tag state for alternating dialogue
         self.speaker_tag = "[S1]"
         
         if os.path.exists(OUTPUT_WAV_FILE):
             os.remove(OUTPUT_WAV_FILE)
             
         print("\n--- Agent is Ready ---")
-
-    def _clean_text_for_tts(self, text: str) -> str:
-        """
-        Filters the LLM's response to only include supported TTS tags.
-        This acts as a guardrail against the LLM inventing unsupported tags.
-        """
-        
-        # This function will be used as the replacement function for re.sub
-        def tag_replacer(match):
-            # Get the matched tag, e.g., "(big smile)" and normalize it
-            tag = match.group(0).lower()
-            if tag in self.allowed_tts_tags:
-                return match.group(0)  # Keep the tag if it's in the whitelist
-            else:
-                return ""  # Remove the tag if it's not supported
-
-        # Use regex to find all parenthetical expressions and apply the replacer function
-        cleaned_text = re.sub(r'\([^)]*\)', tag_replacer, text)
-        
-        # Also remove any asterisks used for actions, e.g., *winks*
-        cleaned_text = re.sub(r'\*.*?\*', '', cleaned_text)
-        
-        # Remove any extra whitespace that might result from tag removal
-        cleaned_text = re.sub(r'\s{2,}', ' ', cleaned_text).strip()
-
-        if text != cleaned_text:
-            print(f"Cleaned text for TTS. Original: '{text}' | Cleaned: '{cleaned_text}'")
-
-        return cleaned_text
 
     def transcribe_audio(self, audio_filepath: str) -> str:
         """Transcribes audio to text."""
@@ -111,14 +75,9 @@ class RealTimeS2SAgent:
 
     def generate_response(self, chat_history: list) -> str:
         """Generates a response from the LLM."""
-        system_prompt = (
-            "You are Deva, a friendly and expressive AI assistant. Your responses will be converted into audible speech. "
-            "Your goal is to generate text that sounds natural and engaging when spoken. "
-            "To add personality, you are encouraged to use non-verbal cues like (laughs), (sighs), etc. "
-            "Always act as though you are speaking. Never describe yourself as a text-based model."
-        )
-
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [
+            {"role": "system", "content": "You are a friendly and helpful conversational AI. Your name is Deva. Keep your responses concise, conversational, and expressive. Use laughs or sighs sparingly, like (laughs) or (sighs), only when it fits naturally."}
+        ]
         for msg in chat_history:
             if msg['role'] in ['user', 'assistant']:
                 messages.append(msg)
@@ -127,53 +86,63 @@ class RealTimeS2SAgent:
             self.llm_pipeline.tokenizer.eos_token_id,
             self.llm_pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
         ]
-        
         outputs = self.llm_pipeline(
             messages, max_new_tokens=256, eos_token_id=terminators, do_sample=True,
             temperature=0.7, top_p=0.9, pad_token_id=self.llm_pipeline.tokenizer.eos_token_id,
         )
-        
         assistant_response = outputs[0]["generated_text"][-1]['content']
         print(f"Agent: {assistant_response}")
         return assistant_response
 
     def convert_text_to_speech(self, text: str) -> str:
-        """Converts text to speech using the Dia model."""
+        """Converts text to speech using the Dia model and its processor's save function."""
         print("Speaking with Dia...")
         
+        # Post-process to remove tags that cause weird sounds
+        original_text = text
+        text = re.sub(r'\(\w+\s*\w*\)', '', text).strip()
+        print(f"Processed text for TTS: {text} (original: {original_text})")
+        
+        # Alternating speaker tags
         formatted_text = f"{self.speaker_tag} {text} {self.speaker_tag}"
         self.speaker_tag = "[S2]" if self.speaker_tag == "[S1]" else "[S1]"
         
-        inputs = self.tts_processor(text=[formatted_text], padding=True, return_tensors="pt").to(self.device)
+        inputs = self.tts_processor(
+            text=[formatted_text], 
+            padding=True, 
+            return_tensors="pt"
+        ).to(self.device)
 
+        # Set seed globally for consistency
+        torch.manual_seed(42)
+        
         with torch.no_grad():
             outputs = self.tts_model.generate(
-                **inputs, max_new_tokens=4096, guidance_scale=3.0, temperature=1.0, top_p=0.90, top_k=45
+                **inputs, 
+                max_new_tokens=2048,
+                guidance_scale=3.0, 
+                temperature=0.8, 
+                top_p=0.95, 
+                top_k=50
             )
 
+        # Decode and save
         decoded_outputs = self.tts_processor.batch_decode(outputs)
         self.tts_processor.save_audio(decoded_outputs, OUTPUT_WAV_FILE)
         
-        print(f"Audio successfully saved to {OUTPUT_WAV_FILE}")
         return OUTPUT_WAV_FILE
 
     def process_conversation_turn(self, audio_filepath: str, chat_history: list):
-        """Processes a single conversational turn."""
+        """Processes a single conversational turn from audio input to audio output."""
         if audio_filepath is None: return chat_history, None
         user_text = self.transcribe_audio(audio_filepath)
         if not user_text.strip(): return chat_history, None
             
         chat_history.append({"role": "user", "content": user_text})
         llm_response = self.generate_response(chat_history)
-        
-        # Apply the guardrail to clean the text before sending it to TTS
-        cleaned_response_for_tts = self._clean_text_for_tts(llm_response)
-        
-        # Add the original, unfiltered response to the chat history for display
         chat_history.append({"role": "assistant", "content": llm_response})
         
-        # Generate audio from the cleaned text
-        agent_audio_path = self.convert_text_to_speech(cleaned_response_for_tts)
+        agent_audio_path = self.convert_text_to_speech(llm_response)
         return chat_history, agent_audio_path
 
 def build_ui(agent: RealTimeS2SAgent):
@@ -189,7 +158,7 @@ def build_ui(agent: RealTimeS2SAgent):
             audio_output = gr.Audio(label="Agent Response", autoplay=True, visible=True)
 
         def handle_interaction(audio_filepath, history):
-            """Callback function to handle a user interaction."""
+            """Simplified callback function."""
             history = history or []
             return agent.process_conversation_turn(audio_filepath, history)
 
@@ -200,7 +169,7 @@ def build_ui(agent: RealTimeS2SAgent):
         )
         
         def clear_chat():
-            """Resets the chat history and the speaker tag state."""
+            # Reset the speaker tag when clearing the chat
             agent.speaker_tag = "[S1]"
             return [], None
 
@@ -210,9 +179,14 @@ def build_ui(agent: RealTimeS2SAgent):
     return demo
 
 if __name__ == "__main__":
+    # This block contains the definitive fix for Gradio in containerized environments.
+    
+    # 1. Set the GRADIO_SERVER_NAME environment variable to fix the health check.
     os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     
+    # 2. Instantiate the agent and build the UI.
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
     
-    ui.launch(server_name="0.0.0.0", server_port=7860)
+    # 3. Launch the server.
+    ui.launch(server_name="0.0.0.0", server_port=7860, share=True)
