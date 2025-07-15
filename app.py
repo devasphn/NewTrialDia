@@ -44,7 +44,7 @@ class RealTimeS2SAgent:
         self.llm_pipeline = transformers.pipeline(
             "text-generation",
             model=LLM_MODEL,
-            model_kwargs={"torch_dtype": torch.bfloat16}, # Use bfloat16 for better performance
+            model_kwargs={"torch_dtype": torch.bfloat16},
             device_map=self.device,
         )
         print("LLM loaded.")
@@ -164,7 +164,10 @@ def build_ui(agent: RealTimeS2SAgent):
     return demo
 
 if __name__ == "__main__":
+    # Set the environment variable to make the health check succeed inside the container.
+    os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
+    
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    # The final fix for containerized environments: disable the health check and remove share=True.
-    ui.launch(server_name="0.0.0.0", server_port=7860, _check_launched=False)
+    # Launch the server, binding to 0.0.0.0 for external access but using the env var for the internal health check.
+    ui.launch(server_name="0.0.0.0", server_port=7860)
