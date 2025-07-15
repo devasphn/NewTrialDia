@@ -164,10 +164,18 @@ def build_ui(agent: RealTimeS2SAgent):
     return demo
 
 if __name__ == "__main__":
-    # Set the environment variable to make the health check succeed inside the container.
+    # This block contains the definitive fix for Gradio in containerized environments.
+    
+    # 1. Set the GRADIO_SERVER_NAME environment variable.
+    #    This tells Gradio's internal health check to look for the server at 127.0.0.1,
+    #    which is reliable inside a container.
     os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     
+    # 2. Instantiate the agent and build the UI.
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    # Launch the server, binding to 0.0.0.0 for external access but using the env var for the internal health check.
+    
+    # 3. Launch the server.
+    #    - server_name="0.0.0.0" makes the server accessible from outside the container (needed for Runpod).
+    #    - We do NOT use share=True or any other undocumented flags.
     ui.launch(server_name="0.0.0.0", server_port=7860)
