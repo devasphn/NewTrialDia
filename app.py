@@ -12,7 +12,7 @@ LLM_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 TTS_MODEL = "nari-labs/Dia-1.6B-0626"
 OUTPUT_WAV_FILE = "output.wav"
 
-# Disable flagging to reduce potential errors
+# Environment settings
 os.environ['GRADIO_ALLOW_FLAGGING'] = 'never'
 os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
 
@@ -71,9 +71,17 @@ class RealTimeS2SAgent:
         
         try:
             with torch.no_grad():
-                outputs = self.tts_model.generate(**inputs, max_new_tokens=4096, guidance_scale=3.0, temperature=1.8, top_p=0.90, top_k=45)
+                outputs = self.tts_model.generate(**inputs, max_new_tokens=2048, guidance_scale=3.0, temperature=1.8, top_p=0.90, top_k=45)
             decoded = self.tts_processor.batch_decode(outputs)
-            audio_array = decoded[0]["audio"][0]
+            
+            # Fixed audio extraction with shape handling
+            audio_array = decoded[0]["audio"]
+            print(f"Decoded audio shape: {audio_array.shape}")  # Debug log
+            if audio_array.ndim > 1:
+                audio_array = audio_array[0]  # Select first channel if multi-dimensional
+            elif audio_array.ndim == 0:
+                raise ValueError("Decoded audio is scalar; generation failed.")
+            
             samplerate = decoded[0]["sampling_rate"]
             sf.write(OUTPUT_WAV_FILE, audio_array, samplerate)
             return OUTPUT_WAV_FILE
@@ -98,8 +106,8 @@ def build_ui(agent: RealTimeS2SAgent):
         gr.Markdown("# Real-Time Speech-to-Speech AI Agent (Dia TTS)")
         gr.Markdown("Tap mic, speak; agent responds expressively.")
 
-        # Use default Chatbot (no type="messages") to avoid schema bug
-        chatbot = gr.Chatbot(label="Conversation", height=500)
+        # Explicit type="tuples" to suppress warning
+        chatbot = gr.Chatbot(label="Conversation", height=500, type="tuples")
         
         with gr.Row():
             mic_input = gr.Audio(sources=["microphone"], type="filepath", label="Tap to Talk")
@@ -108,7 +116,7 @@ def build_ui(agent: RealTimeS2SAgent):
         def handle_interaction(audio_filepath, history):
             history = history or []
             new_history, audio_path = agent.process_conversation_turn(audio_filepath, history)
-            # Convert to tuple format for default Chatbot
+            # Format as list of tuples for chatbot
             chat_tuples = [(msg["content"], None) if msg["role"] == "user" else (None, msg["content"]) for msg in new_history]
             return chat_tuples, audio_path
 
@@ -122,4 +130,4 @@ def build_ui(agent: RealTimeS2SAgent):
 if __name__ == "__main__":
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    ui.launch(server_name="0.0.0.0", server_port=7860, share=True, show_api=False)  # share=True for public URL on Runpod
+    ui.launch(server_name="0.0.0.0", server_port=7860, share=True, show_api=False)
