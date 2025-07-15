@@ -6,6 +6,7 @@ import numpy as np
 import soundfile as sf
 import time
 import os
+import re  # For post-processing
 
 # --- Configuration ---
 # Models
@@ -73,19 +74,10 @@ class RealTimeS2SAgent:
         return transcription
 
     def generate_response(self, chat_history: list) -> str:
-        """Generates a response from the LLM with a persona-driven system prompt."""
-        
-        # This new system prompt is the key to fixing the AI's behavior.
-        # It explicitly tells the LLM it has a voice and how to behave.
-        system_prompt = (
-            "You are Deva, a friendly and expressive AI assistant. Your responses will be converted into "
-            "audible speech, so your primary goal is to generate text that sounds natural and engaging when spoken. "
-            "Use conversational language and non-verbal cues like (laughs), (sighs), or (ahem) to add personality. "
-            "Crucially, always act as though you are speaking. Never describe yourself as a text-based model or "
-            "mention that you cannot speak. You have a voice."
-        )
-
-        messages = [{"role": "system", "content": system_prompt}]
+        """Generates a response from the LLM."""
+        messages = [
+            {"role": "system", "content": "You are a friendly and helpful conversational AI. Your name is Deva. Keep your responses concise, conversational, and expressive. Use laughs or sighs sparingly, like (laughs) or (sighs), only when it fits naturally."}  # Adjusted to minimize overuse
+        ]
         for msg in chat_history:
             if msg['role'] in ['user', 'assistant']:
                 messages.append(msg)
@@ -94,12 +86,10 @@ class RealTimeS2SAgent:
             self.llm_pipeline.tokenizer.eos_token_id,
             self.llm_pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
         ]
-        
         outputs = self.llm_pipeline(
             messages, max_new_tokens=256, eos_token_id=terminators, do_sample=True,
             temperature=0.7, top_p=0.9, pad_token_id=self.llm_pipeline.tokenizer.eos_token_id,
         )
-        
         assistant_response = outputs[0]["generated_text"][-1]['content']
         print(f"Agent: {assistant_response}")
         return assistant_response
@@ -107,6 +97,9 @@ class RealTimeS2SAgent:
     def convert_text_to_speech(self, text: str) -> str:
         """Converts text to speech using the Dia model and its processor's save function."""
         print("Speaking with Dia...")
+        
+        # Optional: Post-process to remove or tone down nonverbal tags for clearer speech
+        text = re.sub(r'\(\w+\)', '', text).strip()  # Remove (laughs), etc., if desired; comment out if you want to keep them
         
         # Dia works best with alternating speaker tags. We'll manage this state.
         formatted_text = f"{self.speaker_tag} {text} {self.speaker_tag}"
@@ -122,14 +115,14 @@ class RealTimeS2SAgent:
         with torch.no_grad():
             outputs = self.tts_model.generate(
                 **inputs, 
-                max_new_tokens=4096,
+                max_new_tokens=2048,  # Reduced for faster, more stable generation
                 guidance_scale=3.0, 
-                temperature=1.0, 
-                top_p=0.90, 
-                top_k=45
+                temperature=0.8,  # Adjusted for more natural variability without weirdness
+                top_p=0.95,  # Slightly higher for better coherence
+                top_k=50  # Slightly higher for diversity
             )
 
-        # Use the processor's built-in save function for robust audio saving
+        # Decode and save using processor's method
         decoded_outputs = self.tts_processor.batch_decode(outputs)
         self.tts_processor.save_audio(decoded_outputs, OUTPUT_WAV_FILE)
         
@@ -184,12 +177,12 @@ def build_ui(agent: RealTimeS2SAgent):
 if __name__ == "__main__":
     # This block contains the definitive fix for Gradio in containerized environments.
     
-    # 1. Set the GRADIO_SERVER_NAME environment variable.
+    # 1. Set the GRADIO_SERVER_NAME environment variable to fix the health check.
     os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     
     # 2. Instantiate the agent and build the UI.
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
     
-    # 3. Launch the server.
-    ui.launch(server_name="0.0.0.0", server_port=7860)
+    # 3. Launch the server with share=True for public link
+    ui.launch(server_name="0.0.0.0", server_port=7860, share=True)
