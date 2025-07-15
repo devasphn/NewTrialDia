@@ -1,25 +1,18 @@
 # Core AI/ML
-torch==2.3.1
-torchaudio==2.3.1
+torch==2.4.0+cu126
+torchaudio==2.4.0+cu126
 accelerate==0.30.1
 bitsandbytes==0.43.1
+huggingface_hub==0.23.4
 
 # Speech-to-Text (STT)
-faster-whisper==1.0.2
+faster-whisper==1.0.3
 ctranslate2==4.3.1
 
-# Language Model (LLM)
-# Note: 'transformers' is installed from git
-huggingface_hub==0.33.4
-
 # Text-to-Speech (TTS) - Nari Labs Dia
-numpy>=2.0.0
-descript-audio-codec>=1.0.0
+numpy==2.1.1
+descript-audio-codec==1.0.0
+soundfile==0.12.1
 
 # Web UI
 gradio==4.44.1
-
-# Audio I/O and Utilities
-pyaudio==0.2.14
-webrtcvad==2.0.10
-soundfile>=0.12.1
