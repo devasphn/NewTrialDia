@@ -74,12 +74,12 @@ class RealTimeS2SAgent:
                 outputs = self.tts_model.generate(**inputs, max_new_tokens=2048, guidance_scale=3.0, temperature=1.8, top_p=0.90, top_k=45)
             decoded = self.tts_processor.batch_decode(outputs)
             
-            # Safe audio extraction with dimension handling
+            # Safe extraction for 1D tensors
             audio_array = decoded[0]["audio"]
             print(f"Decoded audio shape: {audio_array.shape}")  # Debug
-            audio_array = audio_array.squeeze()  # Flatten extra dims
-            if audio_array.ndim > 1:
-                audio_array = audio_array[0]  # First channel if needed
+            audio_array = audio_array.flatten()  # Flatten to 1D
+            if audio_array.ndim != 1:
+                raise ValueError("Unexpected audio dimensions after flattening")
             
             samplerate = decoded[0]["sampling_rate"]
             sf.write(OUTPUT_WAV_FILE, audio_array, samplerate)
@@ -108,7 +108,6 @@ def build_ui(agent: RealTimeS2SAgent):
         gr.Markdown("# Real-Time Speech-to-Speech AI Agent (Dia TTS)")
         gr.Markdown("Tap mic, speak; agent responds expressively.")
 
-        # Use recommended type="messages"
         chatbot = gr.Chatbot(label="Conversation", height=500, type="messages")
         
         with gr.Row():
@@ -118,7 +117,6 @@ def build_ui(agent: RealTimeS2SAgent):
         def handle_interaction(audio_filepath, history):
             history = history or []
             new_history, audio_path = agent.process_conversation_turn(audio_filepath, history)
-            # Format as list of dicts for type="messages"
             chat_messages = [{"role": msg["role"], "content": msg["content"]} for msg in new_history]
             return chat_messages, audio_path
 
