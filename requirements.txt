@@ -9,11 +9,10 @@ faster-whisper==1.0.2
 ctranslate2==4.3.1
 
 # Language Model (LLM)
-# Note: 'transformers' is installed from git below for Dia support
+# Note: 'transformers' is installed from git
 huggingface_hub==0.23.0
 
 # Text-to-Speech (TTS) - Nari Labs Dia
-# Dia requires specific versions, numpy is updated from 1.22.0
 numpy>=2.0.0
 descript-audio-codec>=1.0.0
 
@@ -21,7 +20,6 @@ descript-audio-codec>=1.0.0
 gradio==4.44.1
 
 # Audio I/O and Utilities
-# pyaudio and webrtcvad are not needed for the Gradio app but are kept for reference
 pyaudio==0.2.14
 webrtcvad==2.0.10
 soundfile>=0.12.1
