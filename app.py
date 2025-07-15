@@ -12,6 +12,10 @@ LLM_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 TTS_MODEL = "nari-labs/Dia-1.6B-0626"
 OUTPUT_WAV_FILE = "output.wav"
 
+# Disable flagging to reduce potential errors
+os.environ['GRADIO_ALLOW_FLAGGING'] = 'never'
+os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
+
 class RealTimeS2SAgent:
     def __init__(self):
         print("--- Initializing S2S Agent with Dia TTS ---")
@@ -38,7 +42,7 @@ class RealTimeS2SAgent:
             os.remove(OUTPUT_WAV_FILE)
         
         print("\n--- Agent Ready ---")
-        self.speaker_tag = "[S1]"  # For alternating speakers if needed
+        self.speaker_tag = "[S1]"  # For alternating speakers
 
     def transcribe_audio(self, audio_filepath: str) -> str:
         if not audio_filepath: return ""
@@ -61,7 +65,6 @@ class RealTimeS2SAgent:
     def convert_text_to_speech(self, text: str) -> str:
         print("Speaking with Dia...")
         formatted_text = f"{self.speaker_tag} {text} {self.speaker_tag}"
-        # Alternate tag for next call (simple multi-speaker)
         self.speaker_tag = "[S2]" if self.speaker_tag == "[S1]" else "[S1]"
         
         inputs = self.tts_processor(text=[formatted_text], padding=True, return_tensors="pt").to(self.device)
@@ -95,7 +98,8 @@ def build_ui(agent: RealTimeS2SAgent):
         gr.Markdown("# Real-Time Speech-to-Speech AI Agent (Dia TTS)")
         gr.Markdown("Tap mic, speak; agent responds expressively.")
 
-        chatbot = gr.Chatbot(label="Conversation", height=500, type="messages")
+        # Use default Chatbot (no type="messages") to avoid schema bug
+        chatbot = gr.Chatbot(label="Conversation", height=500)
         
         with gr.Row():
             mic_input = gr.Audio(sources=["microphone"], type="filepath", label="Tap to Talk")
@@ -103,7 +107,10 @@ def build_ui(agent: RealTimeS2SAgent):
 
         def handle_interaction(audio_filepath, history):
             history = history or []
-            return agent.process_conversation_turn(audio_filepath, history)
+            new_history, audio_path = agent.process_conversation_turn(audio_filepath, history)
+            # Convert to tuple format for default Chatbot
+            chat_tuples = [(msg["content"], None) if msg["role"] == "user" else (None, msg["content"]) for msg in new_history]
+            return chat_tuples, audio_path
 
         mic_input.stop_recording(fn=handle_interaction, inputs=[mic_input, chatbot], outputs=[chatbot, audio_output])
         
@@ -113,7 +120,6 @@ def build_ui(agent: RealTimeS2SAgent):
     return demo
 
 if __name__ == "__main__":
-    os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    ui.launch(server_name="0.0.0.0", server_port=7860, show_api=False)  # Disable API to avoid schema error
+    ui.launch(server_name="0.0.0.0", server_port=7860, share=True, show_api=False)  # share=True for public URL on Runpod
