@@ -116,4 +116,4 @@ if __name__ == "__main__":
     os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     agent = RealTimeS2SAgent()
     ui = build_ui(agent)
-    ui.launch(server_name="0.0.0.0", server_port=7860, show_api=False)  # Fix: Disable API to avoid schema error
+    ui.launch(server_name="0.0.0.0", server_port=7860, show_api=False)  # Disable API to avoid schema error
