@@ -168,7 +168,7 @@ if __name__ == "__main__":
     
     # 1. Set the GRADIO_SERVER_NAME environment variable.
     #    This tells Gradio's internal health check to look for the server at 127.0.0.1,
-    #    which is reliable inside a container.
+    #    which is reliable inside a container and solves the `ValueError`.
     os.environ['GRADIO_SERVER_NAME'] = '127.0.0.1'
     
     # 2. Instantiate the agent and build the UI.
@@ -177,5 +177,5 @@ if __name__ == "__main__":
     
     # 3. Launch the server.
     #    - server_name="0.0.0.0" makes the server accessible from outside the container (needed for Runpod).
-    #    - We do NOT use share=True or any other undocumented flags.
+    #    - We do NOT use share=True or any other undocumented/invalid flags.
     ui.launch(server_name="0.0.0.0", server_port=7860)
